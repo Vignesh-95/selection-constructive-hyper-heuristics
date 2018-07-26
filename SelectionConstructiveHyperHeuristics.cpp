@@ -21,7 +21,7 @@ class Chromosome
 {
 	public:
 		vector<int> heuristics;		
-		int numberOfBins;
+		vector<int> numberOfBins;
 		vector<double> fitnesses;
 	
 		// Characteristics of Problem must be determined after the Packing
@@ -33,7 +33,7 @@ class Chromosome
 		// IN GA
 		
 		static int heuristicsLength;
-		static vector<InputData> input;
+		static vector<InputData>* input;
 	
 		Chromosome()
 		{
@@ -46,9 +46,16 @@ class Chromosome
 			
 			for (int count = 0; count < 3; count++)
 			{
-				fitness.push_back(-1);
+				fitnesses.push_back(-1);
+				numberOfBins.push_back(0);
 				applyHeuristics(count);
 			}	
+			
+			for (int count = 3; count < 6; count++)
+			{
+				fitnesses.push_back(-1);
+				numberOfBins.push_back(0);
+			}
 		}
 		
 		void nonInitialisation(vector<int> h)
@@ -60,14 +67,21 @@ class Chromosome
 			
 			for (int count = 0; count < 3; count++)
 			{
-				fitness.push_back(-1);
+				fitnesses.push_back(-1);
+				numberOfBins.push_back(0);
 				applyHeuristics(count);
-			}	
+			}
+
+			for (int count = 3; count < 6; count++)
+			{
+				fitnesses.push_back(-1);
+				numberOfBins.push_back(0);
+			}			
 		}
 		
 		void applyHeuristics(int num)
 		{
-			int numberOfBins = 1;
+			numberOfBins[num] = 1;
 			binCapacities.clear();
 			binCapacities.push_back((*input)[num].binCapacity);
 			numItemsPerBin.clear();
@@ -95,13 +109,13 @@ class Chromosome
 				nextHeuristic = (nextHeuristic + 1) % nextHeuristic;
 			}
 			
-			fitnesses[num] = fitnessFunction(num);
+			fitnessFunction(num);
 		}
 		
 		void calculateFirstFitFitness(int num, int count)
 		{
 			bool didFit = false;
-			for (int b = 0; b < numberOfBins; b++)
+			for (int b = 0; b < numberOfBins[num]; b++)
 			{
 				if (binCapacities[b]  >= (*input)[num].items[count])
 				{
@@ -116,7 +130,7 @@ class Chromosome
 			{
 				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
 				numItemsPerBin.push_back(1);
-				numberOfBins++;
+				numberOfBins[num]++;
 			}
 		}
 		
@@ -125,7 +139,7 @@ class Chromosome
 			bool didFit = false;
 			int minResidue = INT_MAX;
 			int minResidueBin = -1;
-			for (int b = 0; b < numberOfBins; b++)
+			for (int b = 0; b < numberOfBins[num]; b++)
 			{
 				int residue = binCapacities[b]  - (*input)[num].items[count];
 				if (residue >= 0 && residue < minResidue)
@@ -145,17 +159,17 @@ class Chromosome
 			{
 				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
 				numItemsPerBin.push_back(1);
-				numberOfBins++;
+				numberOfBins[num]++;
 			}
 		}
 		
 		void calculateNextFitFitness(int num, int count)
 		{
 			bool didFit = false;
-			if (binCapacities[numberOfBins - 1]  >= (*input)[num].items[count])
+			if (binCapacities[numberOfBins[num] - 1]  >= (*input)[num].items[count])
 			{
-				binCapacities[numberOfBins - 1] -= (*input)[num].items[count];
-				numItemsPerBin[numberOfBins - 1] += 1;
+				binCapacities[numberOfBins[num] - 1] -= (*input)[num].items[count];
+				numItemsPerBin[numberOfBins[num] - 1] += 1;
 				didFit = true;
 			}
 			
@@ -163,16 +177,16 @@ class Chromosome
 			{
 				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
 				numItemsPerBin.push_back(1);
-				numberOfBins++;
+				numberOfBins[num]++;
 			}
 		}
 		
-		void calculateNextFitFitness(int num, int count)
+		void calculateWorstFitFitness(int num, int count)
 		{
-				bool didFit = false;
+			bool didFit = false;
 			int maxResidue = INT_MIN;
 			int maxResidueBin = -1;
-			for (int b = 0; b < numberOfBins; b++)
+			for (int b = 0; b < numberOfBins[num]; b++)
 			{
 				int residue = binCapacities[b]  - (*input)[num].items[count];
 				if (residue >= 0 && residue > maxResidue)
@@ -192,23 +206,23 @@ class Chromosome
 			{
 				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
 				numItemsPerBin.push_back(1);
-				numberOfBins++;
+				numberOfBins[num]++;
 			}
 		}
 		
-		double fitnessFunction(int num)
+		void fitnessFunction(int num)
 		{
-			double sum = 0.0
-			for (int count = 0; count < numberOfBins; count++)
+			double sum = 0.0;
+			for (int count = 0; count < numberOfBins[num]; count++)
 			{
 				double calc = binCapacities[count];
-				calc /= (*input)[num].binCapacity);
+				calc /= (*input)[num].binCapacity;
 				calc *= calc;
 				
 				sum += calc;
 			}
 			
-			return sum / numberOfBins;
+			fitnesses[num] = sum / numberOfBins[num];
 		}
 		
 		double fitnessOverInputs()
@@ -230,38 +244,19 @@ class Chromosome
 		{
 			input = in;
 		}
-		
-		void printChromosome()
-		{
-			cout << "\n-----------------------------------------------------------------------\n";
-			cout << "\n\nPermutation: ";
-			for (int count = 0; count < permutationLength; count++)
-			{
-				cout << permutation[count] << " ";
-			}
-			
-			cout << "\n\nBin Capacities: ";
-			for (int count = 0; count < numberOfBins; count++)
-			{
-				cout << binCapacities[count] << " ";
-			}
-			
-			cout << "\n\nNumber of Bins: " << numberOfBins;
-			cout << "\n-----------------------------------------------------------------------";
-		}
-		
 };
 
 int Chromosome::heuristicsLength;
-vector<InputData> Chromosome::input;
+vector<InputData>* Chromosome::input;
 
 class GA
 {
 	private:
 		vector<Chromosome> population;
-		int populationSize, numberOfGenerations, tournamentSize;
+		int populationSize, numberOfGenerations, tournamentSize, heuristicsLength;
 		double crossoverProbability, mutationProbability;
-		int nBins;
+		vector<int> nBins;
+		Chromosome* best;
 	
 	public:
 		GA(int pSize, int ng, int tSize, double cP, double mP, int hl, vector<InputData>* input)
@@ -271,6 +266,7 @@ class GA
 			tournamentSize = tSize;
 			crossoverProbability = cP;
 			mutationProbability = mP;
+			heuristicsLength = hl;
 			
 			for (int counter = 0; counter < populationSize; counter++)
 			{
@@ -280,9 +276,14 @@ class GA
 			}
 		}
 		
-		int getNBins()
+		vector<int> getNBins()
 		{
 			return nBins;
+		}
+		
+		Chromosome* getBest()
+		{
+			return best;
 		}
 		
 		static bool compare(Chromosome a, Chromosome b)
@@ -294,7 +295,6 @@ class GA
 		{
 			int generationCounter = 0;
 			double fitness;
-			Chromosome* best;
 			std::vector<Chromosome>::iterator result;
 			while(generationCounter < numberOfGenerations)
 			{
@@ -312,7 +312,7 @@ class GA
 			result = std::min_element(population.begin(), population.end(), compare);
 			best = &(*result);
 			fitness = best->fitnessOverInputs();
-			nBins = best->getNumberOfBins();
+			nBins = best->numberOfBins;
 			
 			return fitness; 
 		}
@@ -380,9 +380,9 @@ class GA
 			int bigCounter = 0;
 			int p1 = p[0];
 			int p2 = p[1];
-			for (int counter = 0; counter < chromosomeLength; counter++)
+			for (int counter = 0; counter < heuristicsLength; counter++)
 			{
-				int temp = population[p1].permutationIndex(counter);
+				int temp = population[p1].heuristics[counter];
 				off.push_back(temp);
 				vector<int>::iterator it = std::find(seen.begin(), seen.end(), temp);
 				if (it != seen.end())
@@ -397,7 +397,7 @@ class GA
 					indicesSeen.push_back(*t);
 				}
 				bigCounter++;
-				temp = population[p2].permutationIndex(counter);
+				temp = population[p2].heuristics[counter];
 				off.push_back(temp);
 				it = std::find(seen.begin(), seen.end(), temp);
 				if (it != seen.end())
@@ -446,12 +446,12 @@ class GA
 			//	return;
 			//}
 			
-			int random1 = rand() % chromosomeLength;
-			int random2 = rand() % chromosomeLength;
+			int random1 = rand() % Chromosome::heuristicsLength;
+			int random2 = rand() % Chromosome::heuristicsLength;
 			
-			int temp = offspring->permutationIndex(random1);
-			offspring->setPermutationIndex(random1, offspring->permutationIndex(random2));
-			offspring->setPermutationIndex(random2, temp);
+			int temp = offspring->heuristics[random1];
+			offspring->heuristics[random1] =  offspring->heuristics[random2];
+			offspring->heuristics[random2] = temp;
 		}
 		
 		void insert(int parents[2], Chromosome* offspring)
@@ -538,8 +538,18 @@ int main ()
 	// Add More Parameters
 	GA ga(100, 100, 3, 1, 0.10, 4, &input); 
 	
-	// double fitness = ga.evolve();
-	// int numBins = ga.getNBins();
+	double fitnessTraining = ga.evolve();
+	vector<int> numBinsTraining = ga.getNBins();
+	Chromosome* trainingWinner = ga.getBest();
+	
+	trainingWinner->applyHeuristics(3);
+	trainingWinner->applyHeuristics(4);
+	trainingWinner->applyHeuristics(5);
+	trainingWinner->fitnessFunction(3);
+	trainingWinner->fitnessFunction(4);
+	trainingWinner->fitnessFunction(5);
+	double fitnessTesting = trainingWinner->fitnessOverInputs();
+	vector<int> numBinsTesting = ga.getNBins();
 	
 	return 0;
 }
