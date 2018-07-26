@@ -1,3 +1,4 @@
+// Some imports might not be used
 #include <vector>
 #include <fstream>
 #include <iostream>
@@ -10,120 +11,224 @@
 
 using namespace std;
 
+struct InputData
+{
+	int numberOfItems, binCapacity;
+	vector<int> items;
+};
+
 class Chromosome
 {
-	private:
-		vector<int> permutation;
-		
+	public:
+		vector<int> heuristics;		
 		int numberOfBins;
+		vector<double> fitnesses;
 	
 		// Characteristics of Problem must be determined after the Packing
 		// Stored in these data structures:
-		// USE GETTERS
 		vector<int> binCapacities;
 		vector<int> numItemsPerBin;
+		
+		// 3 training examples, one from each level.
 		// IN GA
-		static int binCapacity;
-		static int permutationLength;
+		
+		static int heuristicsLength;
+		static vector<InputData> input;
 	
-	public:
 		Chromosome()
 		{
-			
-		}
-	
-		Chromosome(vector<int> items)
-		{
+			for (int count = 0; count < heuristicsLength; count++)
+			{
+				heuristics.push_back(count);
+			}
 			srand (time(NULL));
-			std::random_shuffle (items.begin(), items.end());
-			for (int count = 0; count < permutationLength; count++)
+			std::random_shuffle (heuristics.begin(), heuristics.end());
+			
+			for (int count = 0; count < 3; count++)
 			{
-				permutation.push_back(items[count]);
-			}
-			calculateFirstFitFitness();
+				fitness.push_back(-1);
+				applyHeuristics(count);
+			}	
 		}
 		
-		void nonInitialisation(vector<int> items)
+		void nonInitialisation(vector<int> h)
 		{
-			for (int count = 0; count < permutationLength; count++)
+			for (int count = 0; count < heuristicsLength; count++)
 			{
-				permutation.push_back(items[count]);
+				heuristics.push_back(h[count]);
 			}
-			calculateFirstFitFitness();
+			
+			for (int count = 0; count < 3; count++)
+			{
+				fitness.push_back(-1);
+				applyHeuristics(count);
+			}	
 		}
 		
-		void calculateFirstFitFitness()
+		void applyHeuristics(int num)
 		{
-			numberOfBins = 1;
+			int numberOfBins = 1;
 			binCapacities.clear();
-			binCapacities.push_back(binCapacity);
+			binCapacities.push_back((*input)[num].binCapacity);
 			numItemsPerBin.clear();
 			numItemsPerBin.push_back(0);
-			for (int count = 0; count < permutationLength; count++)
+			int nextHeuristic = 0;
+			
+			for (int count = 0; count < (*input)[num].numberOfItems; count++)
 			{
-				bool didFit = false;
-				for (int b = 0; b < numberOfBins; b++)
+				switch(nextHeuristic)
 				{
-					if (binCapacities[b]  >= permutation[count])
-					{
-						binCapacities[b] -= permutation[count];
-						numItemsPerBin[b] += 1;
-						didFit = true;
+					case 0: 
+						calculateFirstFitFitness(num, count);
 						break;
-					}
+					case 1: 
+						calculateBestFitFitness(num, count);
+						break;
+					case 2: 
+						calculateNextFitFitness(num, count);
+						break;
+					case 3: 
+						calculateWorstFitFitness(num, count);
+						break;
 				}
-				if (didFit == false)
+				
+				nextHeuristic = (nextHeuristic + 1) % nextHeuristic;
+			}
+			
+			fitnesses[num] = fitnessFunction(num);
+		}
+		
+		void calculateFirstFitFitness(int num, int count)
+		{
+			bool didFit = false;
+			for (int b = 0; b < numberOfBins; b++)
+			{
+				if (binCapacities[b]  >= (*input)[num].items[count])
 				{
-					binCapacities.push_back(binCapacity - permutation[count]);
-					numItemsPerBin.push_back(1);
-					numberOfBins++;
+					binCapacities[b] -= (*input)[num].items[count];
+					numItemsPerBin[b] += 1;
+					didFit = true;
+					break;
 				}
+			}
+			
+			if (didFit == false)
+			{
+				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
+				numItemsPerBin.push_back(1);
+				numberOfBins++;
 			}
 		}
 		
-		/* TODO: ADD FITNESS FUNCTION FROM GP.
-		* RETURN TYPE.
-		* PARAMETERS (TERMINAL SET) - IN THIS CLASS
-		* BODY (FUNCTION AND TERMINAL SET)
-		*/
-		double fitnessFunction()
+		void calculateBestFitFitness(int num, int count)
 		{
-			return 0.0;
+			bool didFit = false;
+			int minResidue = INT_MAX;
+			int minResidueBin = -1;
+			for (int b = 0; b < numberOfBins; b++)
+			{
+				int residue = binCapacities[b]  - (*input)[num].items[count];
+				if (residue >= 0 && residue < minResidue)
+				{
+					minResidue = residue;
+					minResidueBin = b;
+					didFit = true;
+				}
+			}
+			
+			if (didFit == true)
+			{
+				binCapacities[minResidueBin] -= (*input)[num].items[count];
+				numItemsPerBin[minResidueBin] += 1;
+			}
+			else 
+			{
+				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
+				numItemsPerBin.push_back(1);
+				numberOfBins++;
+			}
 		}
 		
-		static void setBinCapacity(int bCap)
+		void calculateNextFitFitness(int num, int count)
 		{
-			binCapacity = bCap;
+			bool didFit = false;
+			if (binCapacities[numberOfBins - 1]  >= (*input)[num].items[count])
+			{
+				binCapacities[numberOfBins - 1] -= (*input)[num].items[count];
+				numItemsPerBin[numberOfBins - 1] += 1;
+				didFit = true;
+			}
+			
+			if (didFit == false) 
+			{
+				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
+				numItemsPerBin.push_back(1);
+				numberOfBins++;
+			}
 		}
 		
-		static void setPermutationLength(int permLength)
+		void calculateNextFitFitness(int num, int count)
 		{
-			permutationLength = permLength;
+				bool didFit = false;
+			int maxResidue = INT_MIN;
+			int maxResidueBin = -1;
+			for (int b = 0; b < numberOfBins; b++)
+			{
+				int residue = binCapacities[b]  - (*input)[num].items[count];
+				if (residue >= 0 && residue > maxResidue)
+				{
+					maxResidue = residue;
+					maxResidueBin = b;
+					didFit = true;
+				}
+			}
+			
+			if (didFit == true)
+			{
+				binCapacities[maxResidueBin] -= (*input)[num].items[count];
+				numItemsPerBin[maxResidueBin] += 1;
+			}
+			else 
+			{
+				binCapacities.push_back((*input)[num].binCapacity - (*input)[num].items[count]);
+				numItemsPerBin.push_back(1);
+				numberOfBins++;
+			}
 		}
 		
-		int permutationIndex(int index)
+		double fitnessFunction(int num)
 		{
-			return permutation[index];
+			double sum = 0.0
+			for (int count = 0; count < numberOfBins; count++)
+			{
+				double calc = binCapacities[count];
+				calc /= (*input)[num].binCapacity);
+				calc *= calc;
+				
+				sum += calc;
+			}
+			
+			return sum / numberOfBins;
 		}
 		
-		void setPermutationIndex(int index, int value)
+		double fitnessOverInputs()
 		{
-			permutation[index] = value;
+			double fit = 0.0;
+			for (int count = 0; count < 3; count++)
+			{
+				fit += fitnesses[count];
+			}
+			return fit/3.0;
 		}
 		
-		int getNumberOfBins()
+		static void setHeuristicsLength(int hLength)
 		{
-			return numberOfBins;
+			heuristicsLength = hLength;
 		}
 		
-		vector<int>* getBinCapacities()
+		static void setInput(vector<InputData>* in)
 		{
-			return &binCapacities;
-		}
-		
-		vector<int>* getNumItemsPerBin()
-		{
-			return &numItemsPerBin;
+			input = in;
 		}
 		
 		void printChromosome()
@@ -147,8 +252,8 @@ class Chromosome
 		
 };
 
-int Chromosome::binCapacity;
-int Chromosome::permutationLength;
+int Chromosome::heuristicsLength;
+vector<InputData> Chromosome::input;
 
 class GA
 {
@@ -156,26 +261,22 @@ class GA
 		vector<Chromosome> population;
 		int populationSize, numberOfGenerations, tournamentSize;
 		double crossoverProbability, mutationProbability;
-		int chromosomeLength;
-		int binCap;
 		int nBins;
 	
 	public:
-		GA(int pSize, int ng, int tSize, double cP, double mP, int n, int b, vector<int> items)
+		GA(int pSize, int ng, int tSize, double cP, double mP, int hl, vector<InputData>* input)
 		{
 			populationSize = pSize;
 			numberOfGenerations = ng;
 			tournamentSize = tSize;
 			crossoverProbability = cP;
 			mutationProbability = mP;
-			chromosomeLength = n;
-			binCap = b;
 			
 			for (int counter = 0; counter < populationSize; counter++)
 			{
-				Chromosome::setPermutationLength(n);
-				Chromosome::setBinCapacity(b);
-				population.push_back(Chromosome(items));
+				Chromosome::setHeuristicsLength(hl);
+				Chromosome::setInput(input);
+				population.push_back(Chromosome());
 			}
 		}
 		
@@ -186,7 +287,7 @@ class GA
 		
 		static bool compare(Chromosome a, Chromosome b)
 		{
-			return (a.fitnessFunction() < b.fitnessFunction());
+			return (a.fitnessOverInputs() < b.fitnessOverInputs());
 		}
 		
 		int evolve()
@@ -210,7 +311,7 @@ class GA
 			
 			result = std::min_element(population.begin(), population.end(), compare);
 			best = &(*result);
-			fitness = best->fitnessFunction();
+			fitness = best->fitnessOverInputs();
 			nBins = best->getNumberOfBins();
 			
 			return fitness; 
@@ -243,7 +344,7 @@ class GA
 			double min = (double) INT_MAX;
 			for (int counter = 0; counter < tournamentSize; counter++)
 			{
-				double fit = tournament[counter]->fitnessFunction();
+				double fit = tournament[counter]->fitnessOverInputs();
 				if (fit < min)
 				{
 					min = fit;
@@ -259,7 +360,7 @@ class GA
 			for (int counter = 0; counter < tournamentSize; counter++)
 			{	if (counter != parentCounter)
 				{
-					double fit = tournament[counter]->fitnessFunction();
+					double fit = tournament[counter]->fitnessOverInputs();
 					if (fit < min)
 					{
 						min = fit;
@@ -355,9 +456,9 @@ class GA
 		
 		void insert(int parents[2], Chromosome* offspring)
 		{
-			double fitnessP1 = population[parents[0]].fitnessFunction();
-			double fitnessP2 = population[parents[1]].fitnessFunction();
-			double fitnessOffspring = offspring->fitnessFunction();
+			double fitnessP1 = population[parents[0]].fitnessOverInputs();
+			double fitnessP2 = population[parents[1]].fitnessOverInputs();
+			double fitnessOffspring = offspring->fitnessOverInputs();
 			
 			if (fitnessP1 > fitnessP2)
 			{
@@ -381,8 +482,8 @@ class GA
 		{
 			std::vector<Chromosome>::iterator result;
 			result = std::max_element(population.begin(), population.end(), compare);
-			double fitnessP1 = (*result).fitnessFunction();
-			double fitnessOffspring = offspring->fitnessFunction();		
+			double fitnessP1 = (*result).fitnessOverInputs();
+			double fitnessOffspring = offspring->fitnessOverInputs();		
 		
 			if (fitnessP1 > fitnessOffspring)
 			{
@@ -392,251 +493,53 @@ class GA
 		}
 };
 
-enum Type
+int main ()
 {
-	INT,
-	DOUBLE,
-	VECTOR_INT,
-	ARITHMETHIC,
-	SUMMATION
-};
+	ifstream inFile;
+	string fileName;
+	int counter = 0;
+	vector<InputData> input;
+	int x;
 
-class TreeNode
-{
-	public:
-		vector<void*> pointers;
-		vector<Type> types;
-		vector<TreeNode*> children;
-		TreeNode()
+	for (int start = 0; start < 6; start++)
+	{
+		cin >> fileName;
+		inFile.open(fileName.c_str());
+		input.push_back(InputData());
+		
+		if (!inFile) 
 		{
-			
+			cout << "Unable to open file.";
+			exit(1);   // call system to stop
 		}
 		
-		void printTreeNode()
+		while (inFile >> x) 
 		{
-			cout << "\n";
-			int size = pointers.size();
-			for (int counter = 0; counter < size; counter++)
+			if (counter == 0)
 			{
-				if (pointers[counter] != 0)
-				{
-					cout << "Not_Null - ";
-				}
-				cout << types[counter] << " - ";
-				cout << "Child " << counter + 1 << ": ";
-				if (children[counter] != 0)
-				{
-					children[counter]->printTreeNode();
-				}
-				cout << "\n";
+				input[start].numberOfItems = x;
 			}
-			cout << "\n";
-		}
-};
-
-class GP
-{
-	public:
-		
-		TreeNode* root;
-		int maxDepth;
-	
-		// Terminal Set
-		vector<int> binCapacities;
-		vector<int> numItemsPerBin;
-		int binCapacity;
-		int permutationLength;
-	
-		vector<void*> functionSet;
-		vector<Type> functionTypes;
-		vector<void*> terminalSet;
-		vector<Type> terminalTypes;
-	
-		// Function Set
-		static double plus (double arg1, double arg2)
-		{
-			return arg1 + arg2;
-		}
-		
-		static double minus (double arg1, double arg2)
-		{
-			return arg1 - arg2;
-		}
-		
-		static double multiply (double arg1, double arg2)
-		{
-			return arg1 * arg2;
-		}
-		
-		static double divide (double arg1, double arg2)
-		{
-			return arg1 / arg2;
-		}
-		
-		static double power (double arg1, double arg2)
-		{
-			double ans = 1;
-			
-			for (int count = 0; count < arg2; count++)
+			else if (counter == 1)
 			{
-				ans *= arg1;
-			}
-			
-			return ans;
-		}
-		
-		static double summation(vector<double>* values)
-		{
-			return std::accumulate(values->begin(), values->end(), 0.0);
-		}
-		
-		GP(int maxD)
-		{
-			maxDepth = maxD;
-			initialPopulationGeneration();
-		}
-		
-		void initialPopulationGeneration()
-		{
-			srand(5);
-			root = new TreeNode;
-			functionSet.push_back((void*)&plus);
-			functionTypes.push_back(ARITHMETHIC);
-			functionSet.push_back((void*)&minus);
-			functionTypes.push_back(ARITHMETHIC);
-			functionSet.push_back((void*)&multiply);
-			functionTypes.push_back(ARITHMETHIC);
-			functionSet.push_back((void*)&divide);
-			functionTypes.push_back(ARITHMETHIC);
-			functionSet.push_back((void*)&power);
-			functionTypes.push_back(ARITHMETHIC);
-			functionSet.push_back((void*)&summation);
-			functionTypes.push_back(SUMMATION);
-
-			terminalSet.push_back((void*)&binCapacities);
-			terminalTypes.push_back(VECTOR_INT);
-			terminalSet.push_back((void*)&numItemsPerBin);
-			terminalTypes.push_back(VECTOR_INT);
-			terminalSet.push_back((void*)&binCapacity);
-			terminalTypes.push_back(INT);
-			terminalSet.push_back((void*)&permutationLength);
-			terminalTypes.push_back(INT);
-			
-			root = gen_rnd_expr(root, maxDepth);
-			root->printTreeNode();
-		}
-		
-		TreeNode* gen_rnd_expr(TreeNode* node, int depth)
-		{
-			if (depth == 0)
-			{
-				int randomIndex = rand() % terminalSet.size();
-				node->pointers.push_back(terminalSet[randomIndex]);
-				node->types.push_back(terminalTypes[randomIndex]);
+				input[start].binCapacity = x;
 			}
 			else
 			{
-				int randomIndex = rand() % functionSet.size();
-				node->pointers.push_back(functionSet[randomIndex]);
-				Type t = functionTypes[randomIndex];
-				node->types.push_back(t);
-				if (t == ARITHMETHIC)
-				{
-					for (int count = 0; count < 2; count++)
-					{
-						TreeNode* newNode = new TreeNode();
-
-						node->children.push_back(gen_rnd_expr(newNode, depth - 1));
-					}
-				}
-				else
-				{
-					int randomIndex = rand() % 20;
-					for (int count = 0; count < randomIndex; count++)
-					{
-						TreeNode* newNode = new TreeNode();
-						node->children.push_back(gen_rnd_expr(newNode, depth - 1));
-					}
-				}
+				input[start].items.push_back(x);
 			}
-			return node;
+			counter++;
 		}
-		
-		void evolve ()
-		{
-			
-		}
-		
-		double fitnessFunc ()
-		{
-			return 0.0;
-		}
-		
-		void selection  ()
-		{
-			
-		}
-
-		void crossover  ()
-		{
-			
-		}
-
-		void mutation  ()
-		{
-			
-		}
-
-		void insertion  ()
-		{
-			
-		}
-		
-};
-
-int main ()
-{
-	/*
-	ifstream inFile;
-	string fileName;
-	cin >> fileName;
-	inFile.open(fileName.c_str());
-
-	if (!inFile) 
-	{
-		cout << "Unable to open file.";
-		exit(1);   // call system to stop
+		inFile.close();
+		counter = 0;
+		x = 0;
 	}
-	
-	int counter = 0;
-	int numberOfItems, binCapacity;
-	vector<int> items;
-	int x;
-	while (inFile >> x) 
-	{
-		if (counter == 0)
-		{
-			numberOfItems = x;
-		}
-		else if (counter == 1)
-		{
-			binCapacity = x;
-		}
-		else
-		{
-			items.push_back(x);
-		}
-		counter++;
-	}
-	inFile.close();
-	
 
-	GA ga(500, 1000, 3, 1, 0.10, numberOfItems, binCapacity, items); 
-	double fitness = ga.evolve();
-	int numBins = ga.getNBins();
-	*/
+	// Adjust Parameters
+	// Add More Parameters
+	GA ga(100, 100, 3, 1, 0.10, 4, &input); 
 	
-	GP (3);
+	// double fitness = ga.evolve();
+	// int numBins = ga.getNBins();
 	
 	return 0;
 }
