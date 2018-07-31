@@ -1,4 +1,4 @@
-// Some imports might not be used
+// Some imports might not be used - try eliminate them
 #include <vector>
 #include <fstream>
 #include <iostream>
@@ -11,6 +11,7 @@
 
 using namespace std;
 
+// One-Dimensional Bin-Packing Problem
 struct InputData
 {
 	int numberOfItems, binCapacity;
@@ -20,23 +21,30 @@ struct InputData
 class Chromosome
 {
 	public:
-		vector<int> heuristics;		
+		/* Different Representations of Chromosome:
+		* Repetition vs Non-Repetition of Heuristics in Chromosome
+		* Fixed vs Variable Vs N-times Size Chromosome
+		*/	
+		vector<int> heuristics;
+		// Each element corresponds to a different Training or Test Instance
 		vector<int> numberOfBins;
 		vector<double> fitnesses;
-	
-		// Characteristics of Problem must be determined after the Packing
-		// Stored in these data structures:
-		vector<int> binCapacities;
-		vector<int> numItemsPerBin;
-		
-		// 3 training examples, one from each level.
-		// IN GA
-		
+		// Initialised by GA class.
+		// 3 Training and Test Examples - One Per Level Of Difficulty
 		static int heuristicsLength;
 		static vector<InputData>* input;
 	
+		/* Characteristics of the Problem:
+		* Must be determined during the Packing - while applying different heuristics
+		* Stored in these data structures:
+		* Length Corresponds to number of bins for particular training/test instance
+		*/
+		vector<int> binCapacities;
+		vector<int> numItemsPerBin;
+		
 		Chromosome()
 		{
+			// Random Initialisation of Fixed Length Non-repeating Heuristic Combinations
 			for (int count = 0; count < heuristicsLength; count++)
 			{
 				heuristics.push_back(count);
@@ -44,13 +52,15 @@ class Chromosome
 			srand (time(NULL));
 			std::random_shuffle (heuristics.begin(), heuristics.end());
 			
+			/* Initialise Data Sturctures for training/test instances
+			* Calculate Initial Fitnesses By Constructing Solutions using heuristics
+			*/
 			for (int count = 0; count < 3; count++)
 			{
 				fitnesses.push_back(-1);
 				numberOfBins.push_back(0);
 				applyHeuristics(count);
 			}	
-			
 			for (int count = 3; count < 6; count++)
 			{
 				fitnesses.push_back(-1);
@@ -58,6 +68,7 @@ class Chromosome
 			}
 		}
 		
+		// Used When Creating Offspring
 		void nonInitialisation(vector<int> h)
 		{
 			for (int count = 0; count < heuristicsLength; count++)
@@ -79,17 +90,24 @@ class Chromosome
 			}			
 		}
 		
+		// Test/Training Instance Number
 		void applyHeuristics(int num)
 		{
+			// Initially a Single Bin - At least one is needed
 			numberOfBins[num] = 1;
 			binCapacities.clear();
 			binCapacities.push_back((*input)[num].binCapacity);
 			numItemsPerBin.clear();
 			numItemsPerBin.push_back(0);
+			// Start from left to right in heuristic combination
 			int nextHeuristic = 0;
 			
+			// Traverse Circular through the heuristic combination till items are exhausted.
 			for (int count = 0; count < (*input)[num].numberOfItems; count++)
 			{
+				/* Pass the training/test instance number and the number of the current item 
+				* being packed
+				*/
 				switch(nextHeuristic)
 				{
 					case 0: 
@@ -106,17 +124,26 @@ class Chromosome
 						break;
 				}
 				
-				nextHeuristic = (nextHeuristic + 1) % nextHeuristic;
+				// Circular Motion
+				nextHeuristic = (nextHeuristic + 1) % heuristicsLength;
 			}
 			
+			/* We are done packing
+			* Calculate the fitness of the instance using the characteristics of the problem
+			*/
 			fitnessFunction(num);
 		}
 		
+		/* First-fit (count) - The item to be placed is allocated to the first
+		* bin that has sufficient space for it to fit into.
+		*/
 		void calculateFirstFitFitness(int num, int count)
 		{
 			bool didFit = false;
+			// Cycle through created bins
 			for (int b = 0; b < numberOfBins[num]; b++)
 			{
+				// Can Fit
 				if (binCapacities[b]  >= (*input)[num].items[count])
 				{
 					binCapacities[b] -= (*input)[num].items[count];
@@ -134,6 +161,9 @@ class Chromosome
 			}
 		}
 		
+		/* Best-fit (count) - The item is placed into the bin that will have
+		* the smallest residual space once the item is placed into it.
+		*/
 		void calculateBestFitFitness(int num, int count)
 		{
 			bool didFit = false;
@@ -146,6 +176,7 @@ class Chromosome
 				{
 					minResidue = residue;
 					minResidueBin = b;
+					// At least one Bin had space i.e. residue >= 0 
 					didFit = true;
 				}
 			}
@@ -163,6 +194,9 @@ class Chromosome
 			}
 		}
 		
+		/* Next-fit (count) - If the item does not fit into the current bin,
+		* i.e. the last bin to be created, it is placed in a new bin.
+		*/
 		void calculateNextFitFitness(int num, int count)
 		{
 			bool didFit = false;
@@ -181,6 +215,9 @@ class Chromosome
 			}
 		}
 		
+		/* Worst-fit (count) - The item to be placed is allocated to the bin
+		* with the largest residual space once the item is placed into it.
+		*/
 		void calculateWorstFitFitness(int num, int count)
 		{
 			bool didFit = false;
@@ -215,7 +252,7 @@ class Chromosome
 			double sum = 0.0;
 			for (int count = 0; count < numberOfBins[num]; count++)
 			{
-				double calc = binCapacities[count];
+				double calc = (*input)[num].binCapacity - binCapacities[count];
 				calc /= (*input)[num].binCapacity;
 				calc *= calc;
 				
@@ -225,13 +262,23 @@ class Chromosome
 			fitnesses[num] = sum / numberOfBins[num];
 		}
 		
-		double fitnessOverInputs()
+		double fitnessOverInputs(bool train)
 		{
 			double fit = 0.0;
-			for (int count = 0; count < 3; count++)
+			int start = 0; 
+			int end = 3;
+			
+			if (train != true)
+			{
+				start = 3;
+				end = 6;
+			}
+			
+			for (int count = start; count < end; count++)
 			{
 				fit += fitnesses[count];
 			}
+			
 			return fit/3.0;
 		}
 		
@@ -255,7 +302,9 @@ class GA
 		vector<Chromosome> population;
 		int populationSize, numberOfGenerations, tournamentSize, heuristicsLength;
 		double crossoverProbability, mutationProbability;
-		vector<int> nBins;
+		// Objective Value For Each Training and Test Instance
+		vector<int>* nBins;
+		// Best Chromosome Fitness Value
 		Chromosome* best;
 	
 	public:
@@ -276,7 +325,7 @@ class GA
 			}
 		}
 		
-		vector<int> getNBins()
+		vector<int>* getNBins()
 		{
 			return nBins;
 		}
@@ -288,7 +337,7 @@ class GA
 		
 		static bool compare(Chromosome a, Chromosome b)
 		{
-			return (a.fitnessOverInputs() < b.fitnessOverInputs());
+			return (a.fitnessOverInputs(true) < b.fitnessOverInputs(true));
 		}
 		
 		int evolve()
@@ -304,15 +353,21 @@ class GA
 				crossover(parents, offspring);
 				mutate(offspring);
 				insert(parents, offspring);
-				//insertDeletingWorst(offspring);
-				//best->printChromosome();
 				generationCounter++;
 			}
 			
+			/*for (int counter = 0; counter < populationSize; counter++)
+			{
+				for (int count = 0; count < 3; count++)
+				{
+					population[counter].applyHeuristics(count);
+				}
+			}*/
+			
 			result = std::min_element(population.begin(), population.end(), compare);
 			best = &(*result);
-			fitness = best->fitnessOverInputs();
-			nBins = best->numberOfBins;
+			fitness = best->fitnessOverInputs(true);
+			nBins = &(best->numberOfBins);
 			
 			return fitness; 
 		}
@@ -342,9 +397,19 @@ class GA
 			int parent;
 			int parentCounter;
 			double min = (double) INT_MAX;
+			
+			
+			/*for (int counter = 0; counter < populationSize; counter++)
+			{
+				for (int count = 0; count < 3; count++)
+				{
+					population[counter].applyHeuristics(count);
+				}
+			}*/
+			
 			for (int counter = 0; counter < tournamentSize; counter++)
 			{
-				double fit = tournament[counter]->fitnessOverInputs();
+				double fit = tournament[counter]->fitnessOverInputs(true);
 				if (fit < min)
 				{
 					min = fit;
@@ -360,7 +425,7 @@ class GA
 			for (int counter = 0; counter < tournamentSize; counter++)
 			{	if (counter != parentCounter)
 				{
-					double fit = tournament[counter]->fitnessOverInputs();
+					double fit = tournament[counter]->fitnessOverInputs(true);
 					if (fit < min)
 					{
 						min = fit;
@@ -371,71 +436,45 @@ class GA
 			p[1] = parent2;
 		}
 		
-		void crossover(int p [2], Chromosome* offspring)
+		void crossover(int p [2], Chromosome*& offspring)
 		{
-			vector<int> off;
-			vector<int> seen;
-			vector< vector<int> > indicesSeen;
-			
-			int bigCounter = 0;
-			int p1 = p[0];
-			int p2 = p[1];
-			for (int counter = 0; counter < heuristicsLength; counter++)
+			int random = rand() % Chromosome::heuristicsLength;
+			vector<int> temp1;
+			vector<int> temp2;
+			for (int it = 0; it < Chromosome::heuristicsLength; it++)
 			{
-				int temp = population[p1].heuristics[counter];
-				off.push_back(temp);
-				vector<int>::iterator it = std::find(seen.begin(), seen.end(), temp);
-				if (it != seen.end())
-				{
-					indicesSeen[it - seen.begin()].push_back(bigCounter);
+				if (it <= random)
+				{	
+					temp1.push_back(population[p[0]].heuristics[it]);
+					temp2.push_back(population[p[1]].heuristics[it]);
 				}
 				else
 				{
-					seen.push_back(temp);
-					vector<int>* t = new vector<int>;
-					t->push_back(bigCounter);
-					indicesSeen.push_back(*t);
+					temp1.push_back(population[p[1]].heuristics[it]);
+					temp2.push_back(population[p[0]].heuristics[it]);
 				}
-				bigCounter++;
-				temp = population[p2].heuristics[counter];
-				off.push_back(temp);
-				it = std::find(seen.begin(), seen.end(), temp);
-				if (it != seen.end())
-				{
-					indicesSeen[it - seen.begin()].push_back(bigCounter);
-				}
-				else
-				{
-					seen.push_back(temp);
-					vector<int>* t = new vector<int>;
-					t->push_back(bigCounter);
-					indicesSeen.push_back(*t);
-				}
-				bigCounter++;
-			}
-			
-			int countUniqueNumbers = seen.size();
-			for (int i = 0; i < countUniqueNumbers; i++)
-			{
-				int innerVectorSize = indicesSeen[i].size()/2;
-				for (int j = 0; j < innerVectorSize;  j++)
-				{
-					off[indicesSeen[i][j]] = INT_MAX;
-				}
-			}
-			
-			vector<int> finalOffSpring;
-			for (int i = 0; i < bigCounter; i++)
-			{
-				if (off[i] != INT_MAX)
-				{
-					finalOffSpring.push_back(off[i]);
-				}
-			}
+			}	
 			
 			Chromosome* o = new Chromosome;
-			o->nonInitialisation(finalOffSpring);
-			offspring = o;
+			o->nonInitialisation(temp1);
+			Chromosome* o2 = new Chromosome;
+			o->nonInitialisation(temp2);
+			
+			for (int count = 0; count < 3; count++)
+			{
+				o->applyHeuristics(count);
+				o2->applyHeuristics(count);
+			}
+			
+			if (o->fitnessOverInputs(true) < o2->fitnessOverInputs(true))
+			{
+				offspring = o;
+			}
+			else
+			{
+				offspring = o2;
+			}
+			
 		}
 		
 		void mutate(Chromosome* offspring)
@@ -445,20 +484,22 @@ class GA
 			//{
 			//	return;
 			//}
-			
 			int random1 = rand() % Chromosome::heuristicsLength;
 			int random2 = rand() % Chromosome::heuristicsLength;
 			
-			int temp = offspring->heuristics[random1];
-			offspring->heuristics[random1] =  offspring->heuristics[random2];
-			offspring->heuristics[random2] = temp;
+			offspring->heuristics[random1] = random2;
+			
+			for (int count = 0; count < 3; count++)
+			{
+				offspring->applyHeuristics(count);
+			}
 		}
 		
 		void insert(int parents[2], Chromosome* offspring)
 		{
-			double fitnessP1 = population[parents[0]].fitnessOverInputs();
-			double fitnessP2 = population[parents[1]].fitnessOverInputs();
-			double fitnessOffspring = offspring->fitnessOverInputs();
+			double fitnessP1 = population[parents[0]].fitnessOverInputs(true);
+			double fitnessP2 = population[parents[1]].fitnessOverInputs(true);
+			double fitnessOffspring = offspring->fitnessOverInputs(true);
 			
 			if (fitnessP1 > fitnessP2)
 			{
@@ -475,20 +516,6 @@ class GA
 					population.erase(population.begin() + parents[1]);
 					population.push_back(*offspring);
 				}
-			}
-		}
-		
-		void insertDeletingWorst(Chromosome* offspring)
-		{
-			std::vector<Chromosome>::iterator result;
-			result = std::max_element(population.begin(), population.end(), compare);
-			double fitnessP1 = (*result).fitnessOverInputs();
-			double fitnessOffspring = offspring->fitnessOverInputs();		
-		
-			if (fitnessP1 > fitnessOffspring)
-			{
-				population.erase(result);
-				population.push_back(*offspring);
 			}
 		}
 };
@@ -536,20 +563,32 @@ int main ()
 
 	// Adjust Parameters
 	// Add More Parameters
-	GA ga(100, 100, 3, 1, 0.10, 4, &input); 
+	GA ga(50, 3, 3, 1, 0.80, 4, &input); 
 	
 	double fitnessTraining = ga.evolve();
-	vector<int> numBinsTraining = ga.getNBins();
+	cout << "\n\n";
+	cout << "Fitness Training: " << fitnessTraining << "\n";
+	vector<int>* numBinsTraining = ga.getNBins();
+	cout << "Number of Bins Training: ";
+	for (int q = 0; q < 3; q++)
+	{
+		cout << (*numBinsTraining)[q] << " ";
+	}
+	cout << "\n";
 	Chromosome* trainingWinner = ga.getBest();
 	
 	trainingWinner->applyHeuristics(3);
 	trainingWinner->applyHeuristics(4);
 	trainingWinner->applyHeuristics(5);
-	trainingWinner->fitnessFunction(3);
-	trainingWinner->fitnessFunction(4);
-	trainingWinner->fitnessFunction(5);
-	double fitnessTesting = trainingWinner->fitnessOverInputs();
-	vector<int> numBinsTesting = ga.getNBins();
+	double fitnessTesting = trainingWinner->fitnessOverInputs(false);
+	cout << "Fitness Testing: " << fitnessTesting << "\n";
+	vector<int>* numBinsTesting = ga.getNBins();
+	cout << "Number of Bins Testing: ";
+	for (int q = 3; q < 6; q++)
+	{
+		cout << (*numBinsTesting)[q] << " ";
+	}
+	cout << "\n\n\n";
 	
 	return 0;
 }
