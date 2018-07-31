@@ -49,7 +49,7 @@ class Chromosome
 			{
 				heuristics.push_back(count);
 			}
-			srand (time(NULL));
+			
 			std::random_shuffle (heuristics.begin(), heuristics.end());
 			
 			/* Initialise Data Sturctures for training/test instances
@@ -108,7 +108,7 @@ class Chromosome
 				/* Pass the training/test instance number and the number of the current item 
 				* being packed
 				*/
-				switch(nextHeuristic)
+				switch(heuristics[nextHeuristic])
 				{
 					case 0: 
 						calculateFirstFitFitness(num, count);
@@ -282,6 +282,36 @@ class Chromosome
 			return fit/3.0;
 		}
 		
+		void printChromosome(bool train)
+		{
+			int start = 0;
+			int end = 3;
+			
+			if (train != true)
+			{
+				start = 3;
+				end = 6;
+			}
+			
+			cout << "\nHeuristic Combination: ";
+			for (int count = 0; count < heuristicsLength; count++)
+			{
+				cout << heuristics[count];
+			}
+			cout << " -- " << fitnesses[start] << ", " << fitnesses[start + 1] << ", " << fitnesses[start + 2];
+			cout << "--";
+			for (int k = start; k < end; k++)
+			{
+				cout << numberOfBins[k] << "--";
+				for (int count = 0; count < numberOfBins[k]; count++)
+				{
+					cout << binCapacities[count] << " ";
+				}
+			}
+			
+			cout << "\n";
+		}
+		
 		static void setHeuristicsLength(int hLength)
 		{
 			heuristicsLength = hLength;
@@ -322,6 +352,7 @@ class GA
 				Chromosome::setHeuristicsLength(hl);
 				Chromosome::setInput(input);
 				population.push_back(Chromosome());
+				population[counter].printChromosome(true);
 			}
 		}
 		
@@ -380,7 +411,6 @@ class GA
 			
 			for (int counter = 0; counter < tournamentSize; counter++)
 			{
-				srand (time(NULL));
 				int random = rand() % populationSize;
 				
 				while (valueLength != 0 && std::find (values.begin(), values.end(), random) != values.end())
@@ -479,7 +509,6 @@ class GA
 		
 		void mutate(Chromosome* offspring)
 		{
-			srand (time(NULL));
 			//if ((rand() % 10000) >= (mutationProbability * 10000))
 			//{
 			//	return;
@@ -522,6 +551,7 @@ class GA
 
 int main ()
 {
+	srand (time(NULL));
 	ifstream inFile;
 	string fileName;
 	int counter = 0;
@@ -563,7 +593,7 @@ int main ()
 
 	// Adjust Parameters
 	// Add More Parameters
-	GA ga(50, 3, 3, 1, 0.80, 4, &input); 
+	GA ga(50, 100, 3, 1, 0.80, 4, &input); 
 	
 	double fitnessTraining = ga.evolve();
 	cout << "\n\n";
