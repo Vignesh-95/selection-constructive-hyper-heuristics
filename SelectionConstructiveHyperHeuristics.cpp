@@ -11,7 +11,7 @@
 
 using namespace std;
 
-// One-Dimensional Bin-Packing Problem
+// 1-Dimensional Bin-Packing Problem
 struct InputData
 {
 	int numberOfItems, binCapacity;
