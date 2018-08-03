@@ -29,6 +29,7 @@ class Chromosome
 		// Each element corresponds to a different Training or Test Instance
 		vector<int> numberOfBins;
 		vector<double> fitnesses;
+		int totalBins;
 		// Initialised by GA class.
 		// 3 Training and Test Examples - One Per Level Of Difficulty
 		static int heuristicsLength;
@@ -48,6 +49,7 @@ class Chromosome
 		{
 			sumItems = 0;
 			sumBins = 0;
+			totalBins = 0;
 			
 			// Random Initialisation of Fixed Length Non-repeating Heuristic Combinations
 			for (int count = 0; count < heuristicsLength; count++)
@@ -74,12 +76,16 @@ class Chromosome
 			tabuListLength = 0;
 			tempHeuristicsLength = 0;
 			objectiveValueTabu = INT_MAX;
+			totalBinsTabu = INT_MAX;
 			copyLength = 0;
 		}
 		
 		// Used When Creating Offspring
 		void nonInitialisation(vector<int> h)
 		{
+			sumItems = 0;
+			sumBins = 0;
+			totalBins = 0;
 			for (int count = 0; count < heuristicsLength; count++)
 			{
 				heuristics.push_back(h[count]);
@@ -96,7 +102,7 @@ class Chromosome
 			{
 				fitnesses.push_back(-1);
 				numberOfBins.push_back(0);
-			}			
+			}
 		}
 		
 		// Test/Training Instance Number
@@ -111,6 +117,8 @@ class Chromosome
 			// Start from left to right in heuristic combination
 			int nextHeuristic = 0;
 			sumBins = 0;
+			sumItems = 0;
+			totalBins = 0;
 			
 			// Traverse Circular through the heuristic combination till items are exhausted.
 			for (int count = 0; count < (*input)[num].numberOfItems; count++)
@@ -143,7 +151,21 @@ class Chromosome
 			*/
 			fitnessFunction(num);
 		}
-		
+
+		void checkPack(int num)
+		{
+			int calc = 0;
+			for (int count = 0; count < numberOfBins[num]; count++)
+			{
+				calc += (*input)[num].binCapacity - binCapacities[count];
+			}
+
+			if (calc != sumItems)
+			{
+				cout << "PROBLEM" << "\n";
+			}
+		}
+
 		/* First-fit (count) - The item to be placed is allocated to the first
 		* bin that has sufficient space for it to fit into.
 		*/
@@ -169,6 +191,8 @@ class Chromosome
 				numItemsPerBin.push_back(1);
 				numberOfBins[num]++;
 			}
+		//	checkPack(num);
+		//	cout << "";
 		}
 		
 		/* Best-fit (count) - The item is placed into the bin that will have
@@ -202,6 +226,8 @@ class Chromosome
 				numItemsPerBin.push_back(1);
 				numberOfBins[num]++;
 			}
+		//	checkPack(num);
+		//	cout << "";
 		}
 		
 		/* Next-fit (count) - If the item does not fit into the current bin,
@@ -223,6 +249,7 @@ class Chromosome
 				numItemsPerBin.push_back(1);
 				numberOfBins[num]++;
 			}
+		//	checkPack(num);
 		}
 		
 		/* Worst-fit (count) - The item to be placed is allocated to the bin
@@ -255,6 +282,8 @@ class Chromosome
 				numItemsPerBin.push_back(1);
 				numberOfBins[num]++;
 			}
+		//	checkPack(num);
+		//	cout << "";
 		}
 		
 		void fitnessFunction(int num)
@@ -269,7 +298,7 @@ class Chromosome
 				
 				sum += calc;
 			}
-			
+
 			if (sumBins != sumItems)
 			{
 				cout << "WHAT\n";
@@ -293,6 +322,7 @@ class Chromosome
 			for (int count = start; count < end; count++)
 			{
 				fit += fitnesses[count];
+				totalBins += numberOfBins[count];
 			}
 			
 			return fit/3.0;
@@ -347,6 +377,7 @@ class Chromosome
 		int copyLength;
 		static int tabuIterations;
 		double objectiveValueTabu;
+		int totalBinsTabu;
 			
 		template<typename T>
 		bool isEqual(std::vector<T> const &v1, std::vector<T> const &v2)
@@ -358,6 +389,7 @@ class Chromosome
 		void tabu_search()
 		{
 			objectiveValueTabu = fitnessOverInputs(true);
+			totalBinsTabu = totalBins;
 			for (int count = 0; count < tabuIterations; count++)
 			{
 				moveOperator();
@@ -394,7 +426,7 @@ class Chromosome
 					
 					double ov = fitnessOverInputs(true);
 					
-					if (ov < objectiveValueTabu)
+					if (totalBins < totalBinsTabu || (totalBinsTabu == totalBins && ov < objectiveValueTabu))
 					{
 						objectiveValueTabu = ov;
 						copyLength = 0;
@@ -435,6 +467,10 @@ class Chromosome
 			switch(rand1)
 			{
 				case 0:
+					if (Chromosome::heuristicsLength == 1)
+					{
+						goto STOP_SEG_FAULT_;
+					}
 					rand2 = rand() % Chromosome::heuristicsLength;
 					for (int w = 0; w < Chromosome::heuristicsLength; w++)
 					{
@@ -444,6 +480,7 @@ class Chromosome
 					tempHeuristicsLength = Chromosome::heuristicsLength - 1;
 					break;
 				case 1:
+					STOP_SEG_FAULT_:
 					rand2 = rand() % 4;
 					for (int w = 0; w < Chromosome::heuristicsLength; w++)
 					{
@@ -462,13 +499,13 @@ class Chromosome
 				case 2:
 					rand2 = rand() % Chromosome::heuristicsLength;
 					rand3 =  rand() % 4;
-					while (rand3 == tempHeuristics[rand2])
-					{
-						rand3 =  rand() % 4;
-					}
 					for (int w = 0; w < Chromosome::heuristicsLength; w++)
 					{
 						tempHeuristics.push_back(heuristics[w]);
+					}
+					while (rand3 == tempHeuristics[rand2])
+					{
+						rand3 =  rand() % 4;
 					}
 					tempHeuristics[rand2] = rand3;
 					tempHeuristicsLength = Chromosome::heuristicsLength;
@@ -484,7 +521,7 @@ class Chromosome
 					{
 						tempHeuristics.push_back(heuristics[w]);
 					}
-					tempHeuristics[rand2] = rand3;
+					tempHeuristics[rand2] = tempHeuristics[rand3];
 					tempHeuristicsLength = Chromosome::heuristicsLength;
 					break;
 			}
@@ -724,19 +761,56 @@ class GA
 		}
 };
 
+int check_error_bits(ifstream* f) {
+	int stop = 0;
+	if (f->eof()) {
+		perror("stream eofbit. error state");
+		// EOF after std::getline() is not the criterion to stop processing
+		// data: In case there is data between the last delimiter and EOF,
+		// getline() extracts it and sets the eofbit.
+		stop = 0;
+	}
+	if (f->fail()) {
+		perror("stream failbit (or badbit). error state");
+		stop = 1;
+	}
+	if (f->bad()) {
+		perror("stream badbit. error state");
+		stop = 1;
+	}
+	return stop;
+}
+
 int main ()
 {
 	srand (time(NULL));
 	ifstream inFile;
-	string fileName;
+	ifstream names;
+	string aName = "/home/vignesh/CLionProjects/SelectionConstructiveHyperHeuristics_Assignment1_COS790/selection-constructive-hyper-heuristics/FileNames.txt";
+	names.open(aName.c_str());
+	string temp = "";
+	int u = 0;
+	string fileName[6];
+	while (1)
+	{
+		std::getline(names, temp);
+
+		if (check_error_bits(&names))
+		{
+			break;
+		}
+
+		fileName[u] = temp;
+		u++;
+	}
+	names.close();
 	int counter = 0;
 	vector<InputData> input;
 	int x;
 
 	for (int start = 0; start < 6; start++)
 	{
-		cin >> fileName;
-		inFile.open(fileName.c_str());
+		inFile.open(("/home/vignesh/CLionProjects/SelectionConstructiveHyperHeuristics_Assignment1_COS790/selection-constructive-hyper-heuristics/" + fileName[start]).c_str());
 		input.push_back(InputData());
 		
 		if (!inFile) 
@@ -799,7 +873,7 @@ int main ()
 	*/
 	
 	// TABU LOCAL SEARCH 
-	Chromosome::setTabuIterations(100);
+	Chromosome::setTabuIterations(10000);
 	Chromosome::setHeuristicsLength(4);
 	Chromosome::setInput(&input);
 	Chromosome tabu;
@@ -819,7 +893,7 @@ int main ()
 	tabu.applyHeuristics(3);
 	tabu.applyHeuristics(4);
 	tabu.applyHeuristics(5);
-	exit(0);
+
 	double fitnessTesting = tabu.fitnessOverInputs(false);
 	cout << "Fitness Testing: " << fitnessTesting << "\n";
 	vector<int> numBinsTesting = tabu.numberOfBins;
