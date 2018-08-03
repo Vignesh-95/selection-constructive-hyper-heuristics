@@ -41,9 +41,14 @@ class Chromosome
 		*/
 		vector<int> binCapacities;
 		vector<int> numItemsPerBin;
+		int sumItems;
+		int sumBins;
 		
 		Chromosome()
 		{
+			sumItems = 0;
+			sumBins = 0;
+			
 			// Random Initialisation of Fixed Length Non-repeating Heuristic Combinations
 			for (int count = 0; count < heuristicsLength; count++)
 			{
@@ -66,6 +71,10 @@ class Chromosome
 				fitnesses.push_back(-1);
 				numberOfBins.push_back(0);
 			}
+			tabuListLength = 0;
+			tempHeuristicsLength = 0;
+			objectiveValueTabu = INT_MAX;
+			copyLength = 0;
 		}
 		
 		// Used When Creating Offspring
@@ -101,6 +110,7 @@ class Chromosome
 			numItemsPerBin.push_back(0);
 			// Start from left to right in heuristic combination
 			int nextHeuristic = 0;
+			sumBins = 0;
 			
 			// Traverse Circular through the heuristic combination till items are exhausted.
 			for (int count = 0; count < (*input)[num].numberOfItems; count++)
@@ -108,6 +118,7 @@ class Chromosome
 				/* Pass the training/test instance number and the number of the current item 
 				* being packed
 				*/
+				sumItems += (*input)[num].items[count];
 				switch(heuristics[nextHeuristic])
 				{
 					case 0: 
@@ -123,7 +134,6 @@ class Chromosome
 						calculateWorstFitFitness(num, count);
 						break;
 				}
-				
 				// Circular Motion
 				nextHeuristic = (nextHeuristic + 1) % heuristicsLength;
 			}
@@ -253,10 +263,16 @@ class Chromosome
 			for (int count = 0; count < numberOfBins[num]; count++)
 			{
 				double calc = (*input)[num].binCapacity - binCapacities[count];
+				sumBins += calc;
 				calc /= (*input)[num].binCapacity;
 				calc *= calc;
 				
 				sum += calc;
+			}
+			
+			if (sumBins != sumItems)
+			{
+				cout << "WHAT\n";
 			}
 			
 			fitnesses[num] = sum / numberOfBins[num];
@@ -321,10 +337,169 @@ class Chromosome
 		{
 			input = in;
 		}
+		
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+		vector< vector<int> > tabuList;
+		int tabuListLength;
+		vector<int> tempHeuristics;
+		int tempHeuristicsLength;
+		vector<int> copy;
+		int copyLength;
+		static int tabuIterations;
+		double objectiveValueTabu;
+			
+		template<typename T>
+		bool isEqual(std::vector<T> const &v1, std::vector<T> const &v2)
+		{
+			return (v1.size() == v2.size() &&
+			std::equal(v1.begin(), v1.end(), v2.begin()));
+		}
+
+		void tabu_search()
+		{
+			objectiveValueTabu = fitnessOverInputs(true);
+			for (int count = 0; count < tabuIterations; count++)
+			{
+				moveOperator();
+				bool tabu = false;
+				for (int iterator = 0; iterator < tabuListLength; iterator++)
+				{
+					if (isEqual(tabuList[iterator], tempHeuristics))
+					{
+						tabu = true;
+						break;
+					}
+				}
+				
+				if (tabu == false)
+				{
+					for (int w = 0; w < heuristicsLength; w++)
+					{
+						copy.push_back(heuristics[w]);
+						copyLength++;
+					}
+					heuristics.clear();
+					heuristicsLength = 0;
+					
+					for (int w = 0; w < tempHeuristicsLength; w++)
+					{
+						heuristics.push_back(tempHeuristics[w]);
+						heuristicsLength++;
+					}
+					
+					for (int g = 0; g < 3; g++)
+					{
+						applyHeuristics(g);
+					}
+					
+					double ov = fitnessOverInputs(true);
+					
+					if (ov < objectiveValueTabu)
+					{
+						objectiveValueTabu = ov;
+						copyLength = 0;
+						copy.clear();
+					}
+					else
+					{
+						heuristicsLength = 0;
+						heuristics.clear();
+						
+						for (int w = 0; w < copyLength; w++)
+						{
+							heuristics.push_back(copy[w]);
+							heuristicsLength++;
+						}
+						
+						copyLength = 0;
+						copy.clear();
+					}
+					
+					vector<int>* addTabu = new vector<int>;
+					for (int w = 0; w < tempHeuristicsLength; w++)
+					{
+						addTabu->push_back(tempHeuristics[w]);
+					}
+					
+					tabuList.push_back(*addTabu);
+					tempHeuristics.clear();
+					tempHeuristicsLength = 0;
+				}
+			}	
+		}
+		
+		void moveOperator()
+		{
+			int rand1 = rand() % 4;
+			int rand2, rand3;
+			switch(rand1)
+			{
+				case 0:
+					rand2 = rand() % Chromosome::heuristicsLength;
+					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					{
+						tempHeuristics.push_back(heuristics[w]);
+					}
+					tempHeuristics.erase(tempHeuristics.begin() + rand2);
+					tempHeuristicsLength = Chromosome::heuristicsLength - 1;
+					break;
+				case 1:
+					rand2 = rand() % 4;
+					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					{
+						tempHeuristics.push_back(heuristics[w]);
+					}
+					tempHeuristics.push_back(rand2);
+					tempHeuristicsLength = Chromosome::heuristicsLength;
+					tempHeuristicsLength += 1;
+					for (int w = 0; w < 3; w++)
+					{
+						rand2 = rand() % 4;
+						tempHeuristics.push_back(rand2);
+						tempHeuristicsLength += 1;
+					}	
+					break;
+				case 2:
+					rand2 = rand() % Chromosome::heuristicsLength;
+					rand3 =  rand() % 4;
+					while (rand3 == tempHeuristics[rand2])
+					{
+						rand3 =  rand() % 4;
+					}
+					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					{
+						tempHeuristics.push_back(heuristics[w]);
+					}
+					tempHeuristics[rand2] = rand3;
+					tempHeuristicsLength = Chromosome::heuristicsLength;
+					break;
+				case 3:
+					rand2 = rand() % Chromosome::heuristicsLength;
+					rand3 =  rand() % Chromosome::heuristicsLength;
+					while (rand3 == rand2)
+					{
+						rand3 =  rand() % Chromosome::heuristicsLength;
+					}
+					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					{
+						tempHeuristics.push_back(heuristics[w]);
+					}
+					tempHeuristics[rand2] = rand3;
+					tempHeuristicsLength = Chromosome::heuristicsLength;
+					break;
+			}
+		}
+		
+		static void setTabuIterations(int it)
+		{
+			tabuIterations = it;
+		}
+	
 };
 
 int Chromosome::heuristicsLength;
 vector<InputData>* Chromosome::input;
+int Chromosome::tabuIterations;
 
 class GA
 {
@@ -591,6 +766,8 @@ int main ()
 		x = 0;
 	}
 
+	/*
+	***** GENETIC ALGORITHM
 	// Adjust Parameters
 	// Add More Parameters
 	GA ga(50, 100, 3, 1, 0.80, 4, &input); 
@@ -617,6 +794,39 @@ int main ()
 	for (int q = 3; q < 6; q++)
 	{
 		cout << (*numBinsTesting)[q] << " ";
+	}
+	cout << "\n\n\n";
+	*/
+	
+	// TABU LOCAL SEARCH 
+	Chromosome::setTabuIterations(100);
+	Chromosome::setHeuristicsLength(4);
+	Chromosome::setInput(&input);
+	Chromosome tabu;
+	tabu.tabu_search();
+
+	double fitnessTraining = tabu.objectiveValueTabu;
+	cout << "\n\n";
+	cout << "Fitness Training: " << fitnessTraining << "\n";
+	vector<int> numBinsTraining = tabu.numberOfBins;
+	cout << "Number of Bins Training: ";
+	for (int q = 0; q < 3; q++)
+	{
+		cout << (numBinsTraining)[q] << " ";
+	}
+	cout << "\n";
+	
+	tabu.applyHeuristics(3);
+	tabu.applyHeuristics(4);
+	tabu.applyHeuristics(5);
+	exit(0);
+	double fitnessTesting = tabu.fitnessOverInputs(false);
+	cout << "Fitness Testing: " << fitnessTesting << "\n";
+	vector<int> numBinsTesting = tabu.numberOfBins;
+	cout << "Number of Bins Testing: ";
+	for (int q = 3; q < 6; q++)
+	{
+		cout << (numBinsTesting)[q] << " ";
 	}
 	cout << "\n\n\n";
 	
