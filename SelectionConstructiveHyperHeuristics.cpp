@@ -8,8 +8,10 @@
 #include <limits.h>
 #include <string>
 #include <numeric>
+#include <chrono>
 
 using namespace std;
+using namespace std::chrono;
 
 // 1-Dimensional Bin-Packing Problem
 struct InputData
@@ -604,12 +606,14 @@ class GA
 			fitness = best->fitnessOverInputs(true);
 			nBins = &(best->numberOfBins);
 
-			for (int z = 0; z < populationSize; z++)
-			{
-				population[z].printChromosome(true);
-			}
+//			cout << "\nPopulation:";
+//			for (int z = 0; z < populationSize; z++)
+//			{
+//				population[z].printChromosome(true);
+//			}
 
-			best->printChromosome(true);
+			//cout << "\n\nBest Individual Training:";
+			//best->printChromosome(true);
 			
 			return fitness; 
 		}
@@ -839,67 +843,228 @@ int main ()
 		x = 0;
 	}
 
-	//***** GENETIC ALGORITHM
+	/***** GENETIC ALGORITHM
 	// Adjust Parameters
 	// Add More Parameters
-	GA ga(50, 100, 3, 1, 0.80, &input);
-	
-	double fitnessTraining = ga.evolve();
-	cout << "\n\n";
-	cout << "Fitness Training: " << fitnessTraining << "\n";
-	vector<int>* numBinsTraining = ga.getNBins();
-	cout << "Number of Bins Training: ";
-	for (int q = 0; q < 3; q++)
+	int minTrainingTestBinSum = INT_MAX;
+	vector<double> bs;
+	vector<double> fits;
+	double avg = 0.0, standardDeviation = 0.0;
+	vector<double> fitnesses;
+	long minDuration;
+	for (int run = 0; run < 30; run++)
 	{
-		cout << (*numBinsTraining)[q] << " ";
+		GA ga(100, 1000, 3, 1, 0.80, &input);
+		int nb = 0;
+
+		// Get starting timepoint
+		auto start = high_resolution_clock::now();
+		double fitnessTraining = ga.evolve();
+		auto stop = high_resolution_clock::now();
+		// Get ending timepoint
+
+		// Get duration. Substart timepoints to
+		// get durarion. To cast it to proper unit
+		// use duration cast method
+		auto duration = duration_cast<microseconds>(stop - start);
+
+		if (run == 0)
+		{
+			minDuration = duration.count();
+		}
+		else
+		{
+			if (duration.count() < minDuration)
+			{
+				minDuration = duration.count();
+			}
+		}
+
+		//cout << "Fitness Training: " << fitnessTraining << "\n";
+		vector<int> *numBinsTraining = ga.getNBins();
+		//cout << "Number of Bins Training: ";
+		for (int q = 0; q < 3; q++)
+		{
+		//	cout << (*numBinsTraining)[q] << " ";
+			nb += (*numBinsTraining)[q];
+		}
+		//cout << "\n";
+		Chromosome *trainingWinner = ga.getBest();
+
+		trainingWinner->applyHeuristics(3);
+		trainingWinner->applyHeuristics(4);
+		trainingWinner->applyHeuristics(5);
+		//cout << "\nBest Individual Testing: ";
+		//trainingWinner->printChromosome(false);
+		double fitnessTesting = trainingWinner->fitnessOverInputs(false);
+		//cout << "Fitness Testing: " << fitnessTesting << "\n";
+		vector<int> *numBinsTesting = ga.getNBins();
+		//cout << "Number of Bins Testing: ";
+		for (int q = 3; q < 6; q++)
+		{
+		//	cout << (*numBinsTesting)[q] << " ";
+			nb += (*numBinsTesting)[q];
+		}
+
+		if (nb < minTrainingTestBinSum)
+		{
+			minTrainingTestBinSum = nb;
+			bs.clear();
+			for (int q = 0; q < 3; q++)
+			{
+				bs.push_back((*numBinsTraining)[q]);
+			}
+
+			for (int q = 3; q < 6; q++)
+			{
+				bs.push_back((*numBinsTesting)[q]);
+			}
+
+			fits.clear();
+			fits.push_back(fitnessTraining);
+			fits.push_back(fitnessTesting);
+			trainingWinner->printChromosome(true);
+			trainingWinner->printChromosome(false);
+		}
+		avg += fitnessTesting + fitnessTraining;
+		fitnesses.push_back(fitnessTesting);
+		fitnesses.push_back(fitnessTraining);
+		//cout << "\n\n\n";
 	}
 	cout << "\n";
-	Chromosome* trainingWinner = ga.getBest();
-	
-	trainingWinner->applyHeuristics(3);
-	trainingWinner->applyHeuristics(4);
-	trainingWinner->applyHeuristics(5);
-	double fitnessTesting = trainingWinner->fitnessOverInputs(false);
-	cout << "Fitness Testing: " << fitnessTesting << "\n";
-	vector<int>* numBinsTesting = ga.getNBins();
-	cout << "Number of Bins Testing: ";
-	for (int q = 3; q < 6; q++)
-	{
-		cout << (*numBinsTesting)[q] << " ";
-	}
-	cout << "\n\n\n";
+	avg /= 60;
 
-	
-	/* TABU LOCAL SEARCH
-	Chromosome::setTabuIterations(10000);
-	Chromosome::setInput(&input);
-	Chromosome tabu;
-	tabu.tabu_search();
+	for(int i = 0; i < 60; ++i)
+		standardDeviation += pow(fitnesses[i] - avg, 2);
 
-	double fitnessTraining = tabu.objectiveValueTabu;
-	cout << "\n\n";
-	cout << "Fitness Training: " << fitnessTraining << "\n";
-	vector<int> numBinsTraining = tabu.numberOfBins;
-	cout << "Number of Bins Training: ";
-	for (int q = 0; q < 3; q++)
+	for (int traverse = 0; traverse < 6; traverse++)
 	{
-		cout << (numBinsTraining)[q] << " ";
+		cout << bs[traverse] << " ";
 	}
 	cout << "\n";
-	
-	tabu.applyHeuristics(3);
-	tabu.applyHeuristics(4);
-	tabu.applyHeuristics(5);
-
-	double fitnessTesting = tabu.fitnessOverInputs(false);
-	cout << "Fitness Testing: " << fitnessTesting << "\n";
-	vector<int> numBinsTesting = tabu.numberOfBins;
-	cout << "Number of Bins Testing: ";
-	for (int q = 3; q < 6; q++)
+	for (int traverse = 0; traverse < 2; traverse++)
 	{
-		cout << (numBinsTesting)[q] << " ";
+		cout << fits[traverse] << " ";
 	}
-	cout << "\n\n\n";
+	cout << "\n";
+	cout << avg;
+	cout << "\n";
+	cout << sqrt(standardDeviation/60);
+	cout << "\n";
+	cout << minDuration * pow(10, -6);
+	cout << "\n";
 	*/
+
+	// TABU LOCAL SEARCH
+	int minTrainingTestBinSum = INT_MAX;
+	vector<double> bs;
+	vector<double> fits;
+	double avg = 0.0, standardDeviation = 0.0;
+	vector<double> fitnesses;
+	long minDuration;
+	for (int run = 0; run < 30; run++)
+	{
+		Chromosome::setTabuIterations(10000);
+		Chromosome::setInput(&input);
+		Chromosome tabu;
+		int nb = 0;
+		// Get starting timepoint
+		auto start = high_resolution_clock::now();
+		tabu.tabu_search();
+		auto stop = high_resolution_clock::now();
+		// Get ending timepoint
+
+		// Get duration. Substart timepoints to
+		// get durarion. To cast it to proper unit
+		// use duration cast method
+		auto duration = duration_cast<microseconds>(stop - start);
+
+		if (run == 0)
+		{
+			minDuration = duration.count();
+		}
+		else
+		{
+			if (duration.count() < minDuration)
+			{
+				minDuration = duration.count();
+			}
+		}
+
+		double fitnessTraining = tabu.objectiveValueTabu;
+		//cout << "\n\n";
+		//cout << "Fitness Training: " << fitnessTraining << "\n";
+		vector<int> numBinsTraining = tabu.numberOfBins;
+		//cout << "Number of Bins Training: ";
+		for (int q = 0; q < 3; q++)
+		{
+		//		cout << (numBinsTraining)[q] << " ";
+			nb += (numBinsTraining)[q];
+		}
+		//cout << "\n";
+
+		tabu.applyHeuristics(3);
+		tabu.applyHeuristics(4);
+		tabu.applyHeuristics(5);
+
+		double fitnessTesting = tabu.fitnessOverInputs(false);
+		//cout << "Fitness Testing: " << fitnessTesting << "\n";
+		vector<int> numBinsTesting = tabu.numberOfBins;
+		//cout << "Number of Bins Testing: ";
+		for (int q = 3; q < 6; q++)
+		{
+		//		cout << (numBinsTesting)[q] << " ";
+			nb += (numBinsTesting)[q];
+		}
+		//cout << "\n\n\n";
+
+		if (nb < minTrainingTestBinSum)
+		{
+			minTrainingTestBinSum = nb;
+			bs.clear();
+			for (int q = 0; q < 3; q++)
+			{
+				bs.push_back((numBinsTraining)[q]);
+			}
+
+			for (int q = 3; q < 6; q++)
+			{
+				bs.push_back((numBinsTesting)[q]);
+			}
+
+			fits.clear();
+			fits.push_back(fitnessTraining);
+			fits.push_back(fitnessTesting);
+			tabu.printChromosome(true);
+			tabu.printChromosome(false);
+		}
+		avg += fitnessTesting + fitnessTraining;
+		fitnesses.push_back(fitnessTesting);
+		fitnesses.push_back(fitnessTraining);
+		//cout << "\n\n\n";
+	}
+	cout << "\n";
+	avg /= 60;
+
+	for(int i = 0; i < 60; ++i)
+		standardDeviation += pow(fitnesses[i] - avg, 2);
+
+	for (int traverse = 0; traverse < 6; traverse++)
+	{
+		cout << bs[traverse] << " ";
+	}
+	cout << "\n";
+	for (int traverse = 0; traverse < 2; traverse++)
+	{
+		cout << fits[traverse] << " ";
+	}
+	cout << "\n";
+	cout << avg;
+	cout << "\n";
+	cout << sqrt(standardDeviation/60);
+	cout << "\n";
+	cout << minDuration * pow(10, -6);
+	cout << "\n";
+
 	return 0;
 }
