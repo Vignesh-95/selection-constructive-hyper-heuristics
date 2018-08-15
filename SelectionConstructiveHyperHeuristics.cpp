@@ -32,7 +32,7 @@ class Chromosome
 		int totalBins;
 		// Initialised by GA class.
 		// 3 Training and Test Examples - One Per Level Of Difficulty
-		static int heuristicsLength;
+		int heuristicsLength;
 		static vector<InputData>* input;
 	
 		/* Characteristics of the Problem:
@@ -50,11 +50,11 @@ class Chromosome
 			sumItems = 0;
 			sumBins = 0;
 			totalBins = 0;
-			
+			heuristicsLength = (rand() % 15) + 1;
 			// Random Initialisation of Fixed Length Non-repeating Heuristic Combinations
 			for (int count = 0; count < heuristicsLength; count++)
 			{
-				heuristics.push_back(count);
+				heuristics.push_back(rand() % 4);
 			}
 			
 			std::random_shuffle (heuristics.begin(), heuristics.end());
@@ -357,12 +357,7 @@ class Chromosome
 			
 			cout << "\n";
 		}
-		
-		static void setHeuristicsLength(int hLength)
-		{
-			heuristicsLength = hLength;
-		}
-		
+
 		static void setInput(vector<InputData>* in)
 		{
 			input = in;
@@ -534,7 +529,6 @@ class Chromosome
 	
 };
 
-int Chromosome::heuristicsLength;
 vector<InputData>* Chromosome::input;
 int Chromosome::tabuIterations;
 
@@ -542,7 +536,7 @@ class GA
 {
 	private:
 		vector<Chromosome> population;
-		int populationSize, numberOfGenerations, tournamentSize, heuristicsLength;
+		int populationSize, numberOfGenerations, tournamentSize;
 		double crossoverProbability, mutationProbability;
 		// Objective Value For Each Training and Test Instance
 		vector<int>* nBins;
@@ -550,21 +544,19 @@ class GA
 		Chromosome* best;
 	
 	public:
-		GA(int pSize, int ng, int tSize, double cP, double mP, int hl, vector<InputData>* input)
+		GA(int pSize, int ng, int tSize, double cP, double mP, vector<InputData>* input)
 		{
 			populationSize = pSize;
 			numberOfGenerations = ng;
 			tournamentSize = tSize;
 			crossoverProbability = cP;
 			mutationProbability = mP;
-			heuristicsLength = hl;
 			
 			for (int counter = 0; counter < populationSize; counter++)
 			{
-				Chromosome::setHeuristicsLength(hl);
 				Chromosome::setInput(input);
 				population.push_back(Chromosome());
-				population[counter].printChromosome(true);
+				// population[counter].printChromosome(true);
 			}
 		}
 		
@@ -580,10 +572,10 @@ class GA
 		
 		static bool compare(Chromosome a, Chromosome b)
 		{
-			return (a.fitnessOverInputs(true) < b.fitnessOverInputs(true));
+			return ((a.totalBins < b.totalBins) || (a.totalBins == b.totalBins && a.fitnessOverInputs(true) < b.fitnessOverInputs(true)));
 		}
 		
-		int evolve()
+		double evolve()
 		{
 			int generationCounter = 0;
 			double fitness;
@@ -611,6 +603,13 @@ class GA
 			best = &(*result);
 			fitness = best->fitnessOverInputs(true);
 			nBins = &(best->numberOfBins);
+
+			for (int z = 0; z < populationSize; z++)
+			{
+				population[z].printChromosome(true);
+			}
+
+			best->printChromosome(true);
 			
 			return fitness; 
 		}
@@ -680,23 +679,32 @@ class GA
 		
 		void crossover(int p [2], Chromosome*& offspring)
 		{
-			int random = rand() % Chromosome::heuristicsLength;
+			int random = rand() % population[p[0]].heuristicsLength;
+			int random2 = rand() % population[p[1]].heuristicsLength;
+
 			vector<int> temp1;
 			vector<int> temp2;
-			for (int it = 0; it < Chromosome::heuristicsLength; it++)
+
+			for (int it = 0; it <= random; it++)
 			{
-				if (it <= random)
-				{	
-					temp1.push_back(population[p[0]].heuristics[it]);
-					temp2.push_back(population[p[1]].heuristics[it]);
-				}
-				else
-				{
-					temp1.push_back(population[p[1]].heuristics[it]);
-					temp2.push_back(population[p[0]].heuristics[it]);
-				}
-			}	
-			
+				temp1.push_back(population[p[0]].heuristics[it]);
+			}
+
+			for (int it = 0; it <= random2; it++)
+			{
+				temp2.push_back(population[p[1]].heuristics[it]);
+			}
+
+			for (int it = random2 + 1; it < population[p[1]].heuristicsLength; it++)
+			{
+				temp1.push_back(population[p[1]].heuristics[it]);
+			}
+
+			for (int it = random + 1; it < population[p[0]].heuristicsLength; it++)
+			{
+				temp2.push_back(population[p[0]].heuristics[it]);
+			}
+
 			Chromosome* o = new Chromosome;
 			o->nonInitialisation(temp1);
 			Chromosome* o2 = new Chromosome;
@@ -725,8 +733,8 @@ class GA
 			//{
 			//	return;
 			//}
-			int random1 = rand() % Chromosome::heuristicsLength;
-			int random2 = rand() % Chromosome::heuristicsLength;
+			int random1 = rand() % offspring->heuristicsLength;
+			int random2 = rand() % 4;
 			
 			offspring->heuristics[random1] = random2;
 			
@@ -738,25 +746,16 @@ class GA
 		
 		void insert(int parents[2], Chromosome* offspring)
 		{
-			double fitnessP1 = population[parents[0]].fitnessOverInputs(true);
-			double fitnessP2 = population[parents[1]].fitnessOverInputs(true);
+
+			std::vector<Chromosome>::iterator result = std::max_element(population.begin(), population.end(), compare);
+
 			double fitnessOffspring = offspring->fitnessOverInputs(true);
+			double fitnessWorst = result->fitnessOverInputs(true);
 			
-			if (fitnessP1 > fitnessP2)
+			if (result->totalBins > offspring->totalBins || (result->totalBins == offspring->totalBins && fitnessWorst >= fitnessOffspring))
 			{
-				if (fitnessP1 > fitnessOffspring)
-				{
-					population.erase(population.begin() + parents[0]);
+					population.erase(result);
 					population.push_back(*offspring);
-				}
-			}
-			else
-			{
-				if (fitnessP2 > fitnessOffspring)
-				{
-					population.erase(population.begin() + parents[1]);
-					population.push_back(*offspring);
-				}
 			}
 		}
 };
@@ -840,11 +839,10 @@ int main ()
 		x = 0;
 	}
 
-	/*
-	***** GENETIC ALGORITHM
+	//***** GENETIC ALGORITHM
 	// Adjust Parameters
 	// Add More Parameters
-	GA ga(50, 100, 3, 1, 0.80, 4, &input); 
+	GA ga(50, 100, 3, 1, 0.80, &input);
 	
 	double fitnessTraining = ga.evolve();
 	cout << "\n\n";
@@ -870,11 +868,10 @@ int main ()
 		cout << (*numBinsTesting)[q] << " ";
 	}
 	cout << "\n\n\n";
-	*/
+
 	
-	// TABU LOCAL SEARCH 
+	/* TABU LOCAL SEARCH
 	Chromosome::setTabuIterations(10000);
-	Chromosome::setHeuristicsLength(4);
 	Chromosome::setInput(&input);
 	Chromosome tabu;
 	tabu.tabu_search();
@@ -903,6 +900,6 @@ int main ()
 		cout << (numBinsTesting)[q] << " ";
 	}
 	cout << "\n\n\n";
-	
+	*/
 	return 0;
 }
