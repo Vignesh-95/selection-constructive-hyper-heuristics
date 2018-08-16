@@ -351,10 +351,10 @@ class Chromosome
 			for (int k = start; k < end; k++)
 			{
 				cout << numberOfBins[k] << "--";
-				for (int count = 0; count < numberOfBins[k]; count++)
-				{
-					cout << binCapacities[count] << " ";
-				}
+//				for (int count = 0; count < numberOfBins[k]; count++)
+//				{
+//					cout << binCapacities[count] << " ";
+//				}
 			}
 			
 			cout << "\n";
@@ -464,27 +464,32 @@ class Chromosome
 			switch(rand1)
 			{
 				case 0:
-					if (Chromosome::heuristicsLength == 1)
+					TOO_LARGE:
+					if (heuristicsLength == 1)
 					{
 						goto STOP_SEG_FAULT_;
 					}
-					rand2 = rand() % Chromosome::heuristicsLength;
-					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					rand2 = rand() % heuristicsLength;
+					for (int w = 0; w < heuristicsLength; w++)
 					{
 						tempHeuristics.push_back(heuristics[w]);
 					}
 					tempHeuristics.erase(tempHeuristics.begin() + rand2);
-					tempHeuristicsLength = Chromosome::heuristicsLength - 1;
+					tempHeuristicsLength = heuristicsLength - 1;
 					break;
 				case 1:
 					STOP_SEG_FAULT_:
 					rand2 = rand() % 4;
-					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					if (heuristicsLength > 8)
+					{
+						goto TOO_LARGE;
+					}
+					for (int w = 0; w < heuristicsLength; w++)
 					{
 						tempHeuristics.push_back(heuristics[w]);
 					}
 					tempHeuristics.push_back(rand2);
-					tempHeuristicsLength = Chromosome::heuristicsLength;
+					tempHeuristicsLength = heuristicsLength;
 					tempHeuristicsLength += 1;
 					for (int w = 0; w < 3; w++)
 					{
@@ -494,9 +499,13 @@ class Chromosome
 					}	
 					break;
 				case 2:
-					rand2 = rand() % Chromosome::heuristicsLength;
+					rand2 = rand() % heuristicsLength;
 					rand3 =  rand() % 4;
-					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					if (heuristicsLength == 1)
+					{
+						goto STOP_SEG_FAULT_;
+					}
+					for (int w = 0; w < heuristicsLength; w++)
 					{
 						tempHeuristics.push_back(heuristics[w]);
 					}
@@ -505,21 +514,25 @@ class Chromosome
 						rand3 =  rand() % 4;
 					}
 					tempHeuristics[rand2] = rand3;
-					tempHeuristicsLength = Chromosome::heuristicsLength;
+					tempHeuristicsLength = heuristicsLength;
 					break;
 				case 3:
-					rand2 = rand() % Chromosome::heuristicsLength;
-					rand3 =  rand() % Chromosome::heuristicsLength;
+					rand2 = rand() % heuristicsLength;
+					rand3 =  rand() % heuristicsLength;
+					if (heuristicsLength == 1)
+					{
+						goto STOP_SEG_FAULT_;
+					}
 					while (rand3 == rand2)
 					{
-						rand3 =  rand() % Chromosome::heuristicsLength;
+						rand3 =  rand() % heuristicsLength;
 					}
-					for (int w = 0; w < Chromosome::heuristicsLength; w++)
+					for (int w = 0; w < heuristicsLength; w++)
 					{
 						tempHeuristics.push_back(heuristics[w]);
 					}
 					tempHeuristics[rand2] = tempHeuristics[rand3];
-					tempHeuristicsLength = Chromosome::heuristicsLength;
+					tempHeuristicsLength = heuristicsLength;
 					break;
 			}
 		}
@@ -786,7 +799,6 @@ int check_error_bits(ifstream* f) {
 
 int main ()
 {
-	srand (time(NULL));
 	ifstream inFile;
 	ifstream names;
 	string aName = "/home/vignesh/CLionProjects/SelectionConstructiveHyperHeuristics_Assignment1_COS790/selection-constructive-hyper-heuristics/FileNames.txt";
@@ -843,117 +855,113 @@ int main ()
 		x = 0;
 	}
 
-	/***** GENETIC ALGORITHM
-	// Adjust Parameters
-	// Add More Parameters
-	int minTrainingTestBinSum = INT_MAX;
-	vector<double> bs;
-	vector<double> fits;
-	double avg = 0.0, standardDeviation = 0.0;
-	vector<double> fitnesses;
-	long minDuration;
-	for (int run = 0; run < 30; run++)
-	{
-		GA ga(100, 1000, 3, 1, 0.80, &input);
-		int nb = 0;
+//	// GENETIC ALGORITHM
+//	// Adjust Parameters
+//	// Add More Parameters
+//	int minTrainingTestBinSum = INT_MAX;
+//	vector<double> bs;
+//	vector<double> fits;
+//	double avg = 0.0, standardDeviation = 0.0;
+//	vector<double> fitnesses;
+//	long avgDuration = 0;
+//	for (int run = 0; run < 30; run++)
+//	{
+//		srand ((unsigned int) run + 1);
+//		GA ga(100, 1000, 3, 1, 0.80, &input);
+//		int nb = 0;
+//
+//		// Get starting timepoint
+//		auto start = high_resolution_clock::now();
+//		double fitnessTraining = ga.evolve();
+//		auto stop = high_resolution_clock::now();
+//		// Get ending timepoint
+//
+//		// Get duration. Substart timepoints to
+//		// get durarion. To cast it to proper unit
+//		// use duration cast method
+//		auto duration = duration_cast<microseconds>(stop - start);
+//
+//		avgDuration += duration.count();
+//
+//		//cout << "Fitness Training: " << fitnessTraining << "\n";
+//		vector<int> *numBinsTraining = ga.getNBins();
+//		//cout << "Number of Bins Training: ";
+//		for (int q = 0; q < 3; q++)
+//		{
+//		//	cout << (*numBinsTraining)[q] << " ";
+//			nb += (*numBinsTraining)[q];
+//		}
+//		//cout << "\n";
+//		Chromosome *trainingWinner = ga.getBest();
+//
+//		trainingWinner->applyHeuristics(3);
+//		trainingWinner->applyHeuristics(4);
+//		trainingWinner->applyHeuristics(5);
+//		//cout << "\nBest Individual Testing: ";
+//		cout << "ITERATION" << run;
+//		trainingWinner->printChromosome(true);
+//		trainingWinner->printChromosome(false);
+//		cout << "____________________________________________\n";
+//		double fitnessTesting = trainingWinner->fitnessOverInputs(false);
+//		//cout << "Fitness Testing: " << fitnessTesting << "\n";
+//		vector<int> *numBinsTesting = ga.getNBins();
+//		//cout << "Number of Bins Testing: ";
+//		for (int q = 3; q < 6; q++)
+//		{
+//		//	cout << (*numBinsTesting)[q] << " ";
+//			nb += (*numBinsTesting)[q];
+//		}
+//
+//		if (nb < minTrainingTestBinSum)
+//		{
+//			minTrainingTestBinSum = nb;
+//			bs.clear();
+//			for (int q = 0; q < 3; q++)
+//			{
+//				bs.push_back((*numBinsTraining)[q]);
+//			}
+//
+//			for (int q = 3; q < 6; q++)
+//			{
+//				bs.push_back((*numBinsTesting)[q]);
+//			}
+//
+//			fits.clear();
+//			fits.push_back(fitnessTraining);
+//			fits.push_back(fitnessTesting);
+//			cout << "\n**********************************";
+//			trainingWinner->printChromosome(true);
+//			trainingWinner->printChromosome(false);
+//			cout << "**********************************\n";
+//		}
+//		avg += fitnessTesting + fitnessTraining;
+//		fitnesses.push_back(fitnessTesting);
+//		fitnesses.push_back(fitnessTraining);
+//		//cout << "\n\n\n";
+//	}
+//	cout << "\n";
+//	avg /= 60;
+//
+//	for(int i = 0; i < 60; ++i)
+//		standardDeviation += pow(fitnesses[i] - avg, 2);
+//
+//	for (int traverse = 0; traverse < 6; traverse++)
+//	{
+//		cout << bs[traverse] << " ";
+//	}
+//	cout << "\n";
+//	for (int traverse = 0; traverse < 2; traverse++)
+//	{
+//		cout << fits[traverse] << " ";
+//	}
+//	cout << "\n";
+//	cout << avg;
+//	cout << "\n";
+//	cout << sqrt(standardDeviation/60);
+//	cout << "\n";
+//	cout << avgDuration/30.0 * pow(10, -6);
+//	cout << "\n";
 
-		// Get starting timepoint
-		auto start = high_resolution_clock::now();
-		double fitnessTraining = ga.evolve();
-		auto stop = high_resolution_clock::now();
-		// Get ending timepoint
-
-		// Get duration. Substart timepoints to
-		// get durarion. To cast it to proper unit
-		// use duration cast method
-		auto duration = duration_cast<microseconds>(stop - start);
-
-		if (run == 0)
-		{
-			minDuration = duration.count();
-		}
-		else
-		{
-			if (duration.count() < minDuration)
-			{
-				minDuration = duration.count();
-			}
-		}
-
-		//cout << "Fitness Training: " << fitnessTraining << "\n";
-		vector<int> *numBinsTraining = ga.getNBins();
-		//cout << "Number of Bins Training: ";
-		for (int q = 0; q < 3; q++)
-		{
-		//	cout << (*numBinsTraining)[q] << " ";
-			nb += (*numBinsTraining)[q];
-		}
-		//cout << "\n";
-		Chromosome *trainingWinner = ga.getBest();
-
-		trainingWinner->applyHeuristics(3);
-		trainingWinner->applyHeuristics(4);
-		trainingWinner->applyHeuristics(5);
-		//cout << "\nBest Individual Testing: ";
-		//trainingWinner->printChromosome(false);
-		double fitnessTesting = trainingWinner->fitnessOverInputs(false);
-		//cout << "Fitness Testing: " << fitnessTesting << "\n";
-		vector<int> *numBinsTesting = ga.getNBins();
-		//cout << "Number of Bins Testing: ";
-		for (int q = 3; q < 6; q++)
-		{
-		//	cout << (*numBinsTesting)[q] << " ";
-			nb += (*numBinsTesting)[q];
-		}
-
-		if (nb < minTrainingTestBinSum)
-		{
-			minTrainingTestBinSum = nb;
-			bs.clear();
-			for (int q = 0; q < 3; q++)
-			{
-				bs.push_back((*numBinsTraining)[q]);
-			}
-
-			for (int q = 3; q < 6; q++)
-			{
-				bs.push_back((*numBinsTesting)[q]);
-			}
-
-			fits.clear();
-			fits.push_back(fitnessTraining);
-			fits.push_back(fitnessTesting);
-			trainingWinner->printChromosome(true);
-			trainingWinner->printChromosome(false);
-		}
-		avg += fitnessTesting + fitnessTraining;
-		fitnesses.push_back(fitnessTesting);
-		fitnesses.push_back(fitnessTraining);
-		//cout << "\n\n\n";
-	}
-	cout << "\n";
-	avg /= 60;
-
-	for(int i = 0; i < 60; ++i)
-		standardDeviation += pow(fitnesses[i] - avg, 2);
-
-	for (int traverse = 0; traverse < 6; traverse++)
-	{
-		cout << bs[traverse] << " ";
-	}
-	cout << "\n";
-	for (int traverse = 0; traverse < 2; traverse++)
-	{
-		cout << fits[traverse] << " ";
-	}
-	cout << "\n";
-	cout << avg;
-	cout << "\n";
-	cout << sqrt(standardDeviation/60);
-	cout << "\n";
-	cout << minDuration * pow(10, -6);
-	cout << "\n";
-	*/
 
 	// TABU LOCAL SEARCH
 	int minTrainingTestBinSum = INT_MAX;
@@ -961,9 +969,10 @@ int main ()
 	vector<double> fits;
 	double avg = 0.0, standardDeviation = 0.0;
 	vector<double> fitnesses;
-	long minDuration;
+	long avgDuration = 0;
 	for (int run = 0; run < 30; run++)
 	{
+		srand ((unsigned int) run + 2);
 		Chromosome::setTabuIterations(10000);
 		Chromosome::setInput(&input);
 		Chromosome tabu;
@@ -979,17 +988,7 @@ int main ()
 		// use duration cast method
 		auto duration = duration_cast<microseconds>(stop - start);
 
-		if (run == 0)
-		{
-			minDuration = duration.count();
-		}
-		else
-		{
-			if (duration.count() < minDuration)
-			{
-				minDuration = duration.count();
-			}
-		}
+		avgDuration += duration.count();
 
 		double fitnessTraining = tabu.objectiveValueTabu;
 		//cout << "\n\n";
@@ -1006,6 +1005,11 @@ int main ()
 		tabu.applyHeuristics(3);
 		tabu.applyHeuristics(4);
 		tabu.applyHeuristics(5);
+
+		cout << "ITERATION" << run;
+		tabu.printChromosome(true);
+		tabu.printChromosome(false);
+		cout << "____________________________________________\n";
 
 		double fitnessTesting = tabu.fitnessOverInputs(false);
 		//cout << "Fitness Testing: " << fitnessTesting << "\n";
@@ -1035,8 +1039,10 @@ int main ()
 			fits.clear();
 			fits.push_back(fitnessTraining);
 			fits.push_back(fitnessTesting);
+			cout << "\n**********************************";
 			tabu.printChromosome(true);
 			tabu.printChromosome(false);
+			cout << "**********************************\n";
 		}
 		avg += fitnessTesting + fitnessTraining;
 		fitnesses.push_back(fitnessTesting);
@@ -1063,7 +1069,7 @@ int main ()
 	cout << "\n";
 	cout << sqrt(standardDeviation/60);
 	cout << "\n";
-	cout << minDuration * pow(10, -6);
+	cout << avgDuration/30.0 * pow(10, -6);
 	cout << "\n";
 
 	return 0;
